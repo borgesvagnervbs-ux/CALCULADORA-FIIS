@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Simulador de Fundos Imobiliários (BRAPI direta)</title>
+<style>
+  body {font-family: Arial, sans-serif; background:#f4f4f9; color:#222; display:flex; justify-content:center; padding:30px;}
+  .container {width:100%; max-width:960px; background:#fff; padding:22px; border-radius:10px; box-shadow:0 8px 30px rgba(0,0,0,.06);}
+  h2 {text-align:center; color:#0b57a4;}
+  label {display:block; font-weight:600; margin-bottom:6px;}
+  input[type=text], input[type=number] {width:100%; padding:10px; border:1px solid #ccc; border-radius:6px;}
+  .row {display:flex; gap:12px; align-items:flex-end;}
+  button {padding:10px 14px; border-radius:6px; border:none; background:#007bff; color:#fff; cursor:pointer;}
+  .btn-consultar {background:#28a745;}
+  .button-group {display:flex; gap:10px; margin-top:10px;}
+  .resultado {margin-top:14px; background:#eef2f7; padding:12px; border-radius:8px; min-height:56px;}
+  .error {color:#a00; font-weight:700;}
+</style>
+</head>
+<body>
+  <div class="container">
+    <h2>Simulador de Fundos Imobiliários</h2>
+
+    <label for="nomeFundo">Código do Fundo (ex: MXRF11)</label>
+    <input id="nomeFundo" type="text" placeholder="Digite o ticker do FII (ex: HGLG11)" />
+
+    <div class="row" style="margin-top:10px;">
+      <div style="flex:1;">
+        <label for="valorCota">Valor da Cota (R$)</label>
+        <input id="valorCota" type="text" />
+      </div>
+      <div style="width:240px;">
+        <button id="btn-consultar" class="btn-consultar">Consultar Cota & Dividendo</button>
+      </div>
+    </div>
+
+    <div style="margin-top:10px;">
+      <label for="dividendoMensal">Dividendo por Cota (R$)</label>
+      <input id="dividendoMensal" type="text" />
+    </div>
+
+    <div class="button-group">
+      <button id="btn-simular">Simular</button>
+    </div>
+
+    <div id="resultado" class="resultado"></div>
+  </div>
+
+<script>
+const BRAPI_TOKEN = "efoyeAp4b6TW9iFURTW2xT";
+
+function parseCurrency(str){if(!str)return 0;const s=String(str).replace(/R\$|\s/g,'').replace(/\./g,'').replace(',', '.');return parseFloat(s)||0;}
+function formatCurrency(n){return 'R$ '+Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2});}
+function showResult(html){document.getElementById('resultado').innerHTML=html;}
+
+async function consultarFII(ticker){
+  const url = `https://brapi.dev/api/quote/${ticker}?token=${BRAPI_TOKEN}`;
+  const resp = await fetch(url);
+  const data = await resp.json();
+  if (!data.results || data.results.length === 0) throw new Error("FII não encontrado");
+  const info = data.results[0];
+  return {
+    nome: info.longName ?? ticker,
+    valorCota: info.regularMarketPrice ?? 0,
+    dividendo: info.dividends?.[0]?.cashDividends?.[0]?.value ?? 0
+  };
+}
+
+document.getElementById('btn-consultar').addEventListener('click', async () => {
+  const ticker = document.getElementById('nomeFundo').value.trim().toUpperCase();
+  if(!ticker){ showResult('<p class="error">Digite o código do FII.</p>'); return; }
+  showResult(`<p>Consultando ${ticker}...</p>`);
+  try {
+    const info = await consultarFII(ticker);
+    document.getElementById('valorCota').value = formatCurrency(info.valorCota);
+    document.getElementById('dividendoMensal').value = formatCurrency(info.dividendo);
+    showResult(`<strong>${info.nome}</strong><br>Cota: ${formatCurrency(info.valorCota)}<br>Último dividendo: ${formatCurrency(info.dividendo)}`);
+  } catch (err) {
+    showResult(`<p class="error">Erro: ${err.message}</p>`);
+  }
+});
+
+document.getElementById('btn-simular').addEventListener('click',()=>{
+  const vc=parseCurrency(document.getElementById('valorCota').value);
+  const dv=parseCurrency(document.getElementById('dividendoMensal').value);
+  if(!vc||vc<=0){showResult('<p class="error">Informe o valor da cota antes.</p>');return;}
+  const cotas=Math.floor(1000/vc);
+  const renda=cotas*dv;
+  showResult(`<p>Com R$1.000,00 você compra <strong>${cotas}</strong> cotas e recebe <strong>${formatCurrency(renda)}</strong> mensais.</p>`);
+});
+</script>
+</body>
+</html>
