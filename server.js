@@ -40,11 +40,12 @@ async function buscarDividendoFundsExplorer(ticker) {
       nome: data.longName ?? data.paper ?? ticker,
       valorCota: Number(data.price ?? 0),
       dividendo: Number(data.dividend ?? 0),
+      dataDividendo: data.lastDividendDate ?? null,
       fonteDiv: "FundsExplorer",
     };
   } catch (err) {
     console.warn("FundsExplorer falhou:", err.message);
-    return { nome: ticker, valorCota: 0, dividendo: 0, fonteDiv: "FundsExplorer" };
+    return { nome: ticker, valorCota: 0, dividendo: 0, dataDividendo: null, fonteDiv: "FundsExplorer" };
   }
 }
 
@@ -65,13 +66,16 @@ async function buscarDividendoStatusInvest(ticker) {
     if (!res.ok) throw new Error("Erro HTTP StatusInvest");
 
     const data = await res.json();
+
+    // "dy" = último dividendo pago, "dyDate" = data do pagamento
     const dividendo = Number(data.dy ?? 0);
+    const dataDividendo = data.dyDate ?? null;
     const nome = data.companyName ?? ticker;
 
-    return { nome, dividendo, fonteDiv: "StatusInvest" };
+    return { nome, dividendo, dataDividendo, fonteDiv: "StatusInvest" };
   } catch (err) {
     console.warn("StatusInvest falhou:", err.message);
-    return { nome: ticker, dividendo: 0, fonteDiv: "StatusInvest" };
+    return { nome: ticker, dividendo: 0, dataDividendo: null, fonteDiv: "StatusInvest" };
   }
 }
 
@@ -87,13 +91,14 @@ app.get("/api/fii/:ticker", async (req, res) => {
     const valorCota = await buscarCotaBRAPI(ticker);
 
     // 2️⃣ Dividendo via FundsExplorer
-    let { nome, dividendo, fonteDiv } = await buscarDividendoFundsExplorer(ticker);
+    let { nome, dividendo, dataDividendo, fonteDiv } = await buscarDividendoFundsExplorer(ticker);
 
     // 3️⃣ Se não houver dividendo, tenta StatusInvest
     if (!dividendo || dividendo === 0) {
       const si = await buscarDividendoStatusInvest(ticker);
       if (si.dividendo > 0) {
         dividendo = si.dividendo;
+        dataDividendo = si.dataDividendo;
         nome = si.nome;
         fonteDiv = si.fonteDiv;
       }
@@ -106,6 +111,7 @@ app.get("/api/fii/:ticker", async (req, res) => {
       nome,
       valorCota,
       dividendo,
+      dataDividendo,
       fonteCota: "BRAPI",
       fonteDiv,
     });
