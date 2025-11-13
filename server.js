@@ -24,23 +24,32 @@ async function buscarCotaBRAPI(ticker) {
 }
 
 // ===== FUNÇÃO FUNDSEXPLORER =====
-async function buscarDividendoFundsExplorer(ticker) {
+/**
+ * Função para buscar dividendo no StatusInvest (via API interna)
+ */
+async function buscarDividendoStatusInvest(ticker) {
   try {
-    const url = `https://www.fundsexplorer.com.br/api/funds/${ticker}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Erro HTTP FundsExplorer");
+    const url = `https://statusinvest.com.br/fii/getmainindicators?ticker=${ticker}`;
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Accept": "application/json, text/plain, */*",
+        "Referer": `https://statusinvest.com.br/fundos-imobiliarios/${ticker}`
+      },
+    });
+    if (!res.ok) throw new Error("Erro HTTP StatusInvest");
     const data = await res.json();
-    return {
-      nome: data.longName ?? data.paper ?? ticker,
-      valorCota: Number(data.price ?? 0),
-      dividendo: Number(data.dividend ?? 0),
-      fonteDiv: "FundsExplorer",
-    };
+
+    const dividendo = Number(data.dy ?? 0);
+    const nome = data.companyName ?? ticker;
+
+    return { nome, dividendo, fonteDiv: "StatusInvest" };
   } catch (err) {
-    console.warn("FundsExplorer falhou:", err.message);
-    return { nome: ticker, valorCota: 0, dividendo: 0, fonteDiv: "FundsExplorer" };
+    console.warn("StatusInvest falhou:", err.message);
+    return { nome: ticker, dividendo: 0, fonteDiv: "StatusInvest" };
   }
 }
+
 
 // ===== FUNÇÃO STATUSINVEST =====
 async function buscarDividendoStatusInvest(ticker) {
@@ -108,3 +117,4 @@ app.get("/api/fii/:ticker", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Servidor ativo na porta ${PORT}`));
+
