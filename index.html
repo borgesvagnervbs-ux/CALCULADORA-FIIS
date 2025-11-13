@@ -1,137 +1,117 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Simulador de Fundos Imobiliários</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    background: #f4f4f9;
-    color: #222;
-    display: flex;
-    justify-content: center;
-    padding: 30px;
-  }
-  .container {
-    width: 100%;
-    max-width: 960px;
-    background: #fff;
-    padding: 22px;
-    border-radius: 10px;
-    box-shadow: 0 8px 30px rgba(0,0,0,.06);
-  }
-  h2 { text-align: center; color: #0b57a4; }
-  label { display: block; font-weight: 600; margin-bottom: 6px; }
-  input[type=text], input[type=number] {
-    width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px;
-  }
-  .row { display: flex; gap: 12px; align-items: flex-end; }
-  button {
-    padding: 10px 14px;
-    border-radius: 6px;
-    border: none;
-    background: #007bff;
-    color: #fff;
-    cursor: pointer;
-  }
-  .btn-consultar { background: #28a745; }
-  .button-group { display: flex; gap: 10px; margin-top: 10px; }
-  .resultado { margin-top: 14px; background: #eef2f7; padding: 12px; border-radius: 8px; min-height: 56px; }
-  .error { color: #a00; font-weight: 700; }
-  .debug { white-space: pre-wrap; font-family: monospace; background: #fff; padding: 10px; border-radius: 6px; border: 1px dashed #ccc; margin-top: 10px; max-height: 260px; overflow: auto; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calculadora de FIIs - BRAPI + StatusInvest</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background-color: #f5f6fa;
+      color: #333;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    .container {
+      max-width: 600px;
+      margin: 30px auto;
+      background: #fff;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 10px;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+    button {
+      background-color: #27ae60;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background-color: #219150;
+    }
+    .resultado {
+      margin-top: 20px;
+      background: #ecf0f1;
+      padding: 15px;
+      border-radius: 8px;
+    }
+    .status {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #555;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
+  <h1>📈 Calculadora de FIIs</h1>
+
   <div class="container">
-    <h2>Simulador de Fundos Imobiliários</h2>
+    <label for="ticker">Código do FII (ex: MXRF11)</label>
+    <input type="text" id="ticker" placeholder="Digite o código do FII" />
 
-    <label for="nomeFundo">Código do Fundo (ex: MXRF11)</label>
-    <input id="nomeFundo" type="text" placeholder="Digite o ticker do FII (ex: HGLG11)" />
+    <button onclick="consultarFII()">Consultar</button>
 
-    <div class="row" style="margin-top:10px;">
-      <div style="flex:1;">
-        <label for="valorCota">Valor da Cota (R$)</label>
-        <input id="valorCota" type="text" />
-      </div>
-      <div style="width:240px;">
-        <button id="btn-consultar" class="btn-consultar">Consultar Cota & Dividendo</button>
-      </div>
-    </div>
-
-    <div style="margin-top:10px;">
-      <label for="dividendoMensal">Dividendo por Cota (R$)</label>
-      <input id="dividendoMensal" type="text" />
-    </div>
-
-    <div class="button-group">
-      <button id="btn-simular">Simular</button>
-    </div>
-
-    <div id="resultado" class="resultado"></div>
-    <div id="debug" class="debug" style="display:none;"></div>
+    <div id="status" class="status"></div>
+    <div id="resultado" class="resultado" style="display: none;"></div>
   </div>
 
-<script>
-/* CONFIGURAÇÃO */
-const API_BASE = "https://calculadora-fiis.onrender.com"; 
-// 🔹 Após publicar no Render, substitua por sua URL real ex: 
-// const API_BASE = "https://simulador-fii-brapi.onrender.com";
+  <script>
+    async function consultarFII() {
+      const ticker = document.getElementById("ticker").value.trim().toUpperCase();
+      const status = document.getElementById("status");
+      const resultado = document.getElementById("resultado");
 
-function parseCurrency(str){
-  if(!str) return 0;
-  const s = String(str).replace(/R\$|\s/g,'').replace(/\./g,'').replace(',', '.');
-  return parseFloat(s) || 0;
-}
-function formatCurrency(n){
-  return 'R$ ' + Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-}
-function showResult(html){ document.getElementById('resultado').innerHTML = html; }
-function showDebug(txt){ const d=document.getElementById('debug'); d.style.display='block'; d.textContent=txt; }
+      if (!ticker) {
+        status.textContent = "⚠️ Informe o código do fundo (ex: MXRF11)";
+        resultado.style.display = "none";
+        return;
+      }
 
-/* CONSULTA AO SERVIDOR ONLINE */
-async function consultarFII(ticker){
-  const url = `${API_BASE}/api/fii/${encodeURIComponent(ticker)}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || "Erro ao consultar servidor");
-  return data;
-}
+      status.textContent = "⏳ Consultando dados...";
+      resultado.style.display = "none";
 
-/* BOTÃO CONSULTAR */
-document.getElementById('btn-consultar').addEventListener('click', async ()=>{
-  const ticker = document.getElementById('nomeFundo').value.trim().toUpperCase();
-  if(!ticker){ showResult('<p class="error">Digite o código do FII.</p>'); return; }
+      try {
+        const url = `https://SEU_PROJETO.onrender.com/api/fii/${ticker}`;
+        const res = await fetch(url);
+        const data = await res.json();
 
-  showResult(`<p>Consultando ${ticker}...</p>`);
-  document.getElementById('debug').style.display = 'none';
+        if (!data.ok) throw new Error("Erro na consulta: " + (data.error || "dados inválidos"));
 
-  try {
-    const info = await consultarFII(ticker);
-    document.getElementById('valorCota').value = formatCurrency(info.valorCota);
-    document.getElementById('dividendoMensal').value = formatCurrency(info.dividendo);
+        resultado.innerHTML = `
+          <h3>${data.nome} (${data.ticker})</h3>
+          <p>💰 <strong>Valor da cota:</strong> R$ ${data.valorCota?.toFixed(2) || "0,00"}</p>
+          <p>💸 <strong>Último dividendo:</strong> R$ ${data.dividendo?.toFixed(2) || "0,00"}</p>
+          <p>📅 <strong>Data do dividendo:</strong> ${data.dataDividendo ? new Date(data.dataDividendo).toLocaleDateString("pt-BR") : "—"}</p>
+          <p>🏦 <strong>Fonte:</strong> ${data.fonteDiv || "—"}</p>
+        `;
 
-    let html = `<strong>${info.nome}</strong> (${info.ticker})<br>`;
-    html += `Cota: ${formatCurrency(info.valorCota)}<br>`;
-    html += `Último Dividendo: ${formatCurrency(info.dividendo)}<br>`;
-    html += `<small>Fontes: ${info.fonteCota}, ${info.fonteDiv}</small>`;
-
-    showResult(html);
-  } catch (err) {
-    showResult(`<p class="error">Erro ao consultar: ${err.message}</p>`);
-  }
-});
-
-/* BOTÃO SIMULAR */
-document.getElementById('btn-simular').addEventListener('click',()=>{
-  const vc = parseCurrency(document.getElementById('valorCota').value);
-  const dv = parseCurrency(document.getElementById('dividendoMensal').value);
-  if(!vc || vc <= 0){ showResult('<p class="error">Informe o valor da cota antes.</p>'); return; }
-  const cotas = Math.floor(1000 / vc);
-  const renda = cotas * dv;
-  showResult(`<p>Com R$1.000,00 você compra <strong>${cotas}</strong> cotas e recebe <strong>${formatCurrency(renda)}</strong> mensais.</p>`);
-});
-</script>
+        resultado.style.display = "block";
+        status.textContent = "✅ Dados atualizados com sucesso!";
+      } catch (err) {
+        console.error("Erro ao consultar FII:", err);
+        status.textContent = "❌ Não foi possível obter os dados. Verifique o código e tente novamente.";
+        resultado.style.display = "none";
+      }
+    }
+  </script>
 </body>
 </html>
-
